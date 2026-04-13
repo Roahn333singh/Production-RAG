@@ -77,7 +77,7 @@ def generator_node(state:RagState):
 
 
 # 1. Setup the Connection Pool
-DB_URI = "postgresql://admin:password@localhost:5432/rag_db"
+DB_URI = os.getenv("SYNC_DB_URI", "postgresql://admin:password@localhost:5432/rag_db")
 
 pool = ConnectionPool(
     conninfo=DB_URI,

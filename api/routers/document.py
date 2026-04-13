@@ -14,7 +14,7 @@ load_dotenv()
 router = APIRouter()
 
 # Note: We use psycopg here because vector_store.add_documents is a sync function
-SYNC_DB_URL = "postgresql+psycopg://admin:password@localhost:5432/rag_db"
+SYNC_DB_URL = os.getenv("SYNC_DB_URL", "postgresql+psycopg://admin:password@localhost:5432/rag_db")
 
 # 1. FIXED: We MUST define the vector store here so the router knows where the DB is!
 vector_store = PGVector(

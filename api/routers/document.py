@@ -3,9 +3,11 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_postgres import PGVector
+from langsmith import traceable
 from dotenv import load_dotenv
 import tempfile
 import os
+import uuid
 
 load_dotenv()
 
@@ -24,6 +26,7 @@ vector_store = PGVector(
 
 
 @router.post("/upload")
+@traceable(name="Document Ingestion Pipeline")
 async def upload_document(
     user_id: str = Form(...),
     file: UploadFile = File(...)
@@ -49,10 +52,15 @@ async def upload_document(
     for doc in split_docs:
         doc.metadata = {"user_id": user_id, "filename": file.filename}
 
-    # 6. Embed the chunks and save to PostgreSQL
-    vector_store.add_documents(split_docs)
+    if not split_docs:
+        os.remove(tmp_file_path)
+        return {"error": "Failed to extract any text from this PDF. Make sure it is not just a scanned image!"}
+
+    # 6. Embed the chunks and save to PostgreSQL with manual IDs to prevent DB crash!
+    chunk_ids = [str(uuid.uuid4()) for _ in split_docs]
+    vector_store.add_documents(split_docs, ids=chunk_ids)
     
-    # 7. FIXED TYPO: Clean up using the correct variable name
+    # 7. Clean up using the correct variable name
     os.remove(tmp_file_path)
     
     return {"message": f"Successfully processed {len(split_docs)} chunks for {user_id}"}

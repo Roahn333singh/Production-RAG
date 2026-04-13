@@ -7,11 +7,15 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg_pool import ConnectionPool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.chat_models import ChatOllama
+from langchain_groq import ChatGroq
 from api.routers.document import vector_store
 from dotenv import load_dotenv
 load_dotenv() 
 import os
+
 GOOGLE_API_KEY=os.getenv("GOOGLE_API_KEY")
+GROQ_API_KEY=os.getenv("GROQ_API_KEY")
+
 
 llm=ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
@@ -19,8 +23,16 @@ llm=ChatGoogleGenerativeAI(
     google_api_key=GOOGLE_API_KEY
 )
 
+llm_groq = ChatGroq(
+    model_name="llama-3.1-8b-instant",
+    groq_api_key=GROQ_API_KEY,
+
+)
+
+
 class RagState(MessagesState):
     user_id: str
+    llm_model: str
     documents: list[str]
 
 def retriever_node(state:RagState):
@@ -45,18 +57,23 @@ def retriever_node(state:RagState):
 
 def generator_node(state:RagState):
     user_id=state["user_id"]
+    llm_model=state.get("llm_model", "gemini-2.5-flash")
     query=state["messages"][-1].content
     content="\n\n".join(state["documents"])
 
     system_prompt = f"""You are a helpful assistant. Answer the user's question ONLY using this context:
     Context: {content}
     """
-    print(f"[{user_id}] Generating answer for: '{query}'")
+    print(f"[{user_id}] Generating answer using {llm_model} for: '{query}'")
 
     message_to_send=[HumanMessage(content=system_prompt)] + state["messages"]
     
-    ai_response=llm.invoke(message_to_send)
-    return {"messages": [AIMessage(content=ai_response.content)]}
+    # 🌟 MAGIC: Dynamically select the LLM based on the API request!
+    active_llm = llm_groq if llm_model == "llama-3.1-8b-instant" else llm
+    
+    # LangGraph context-vars automatically pipe the config down to the LLM invocation, no injection needed!
+    ai_response=active_llm.invoke(message_to_send)
+    return {"messages": [ai_response]}
 
 
 # 1. Setup the Connection Pool
@@ -105,8 +122,6 @@ if __name__ == "__main__":
     # 3. Print the final message the AI generated
     print("\n--- FINAL RESULT ---")
     print(result["messages"][-1].content)
-
-
 
 
     

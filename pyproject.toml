@@ -10,6 +10,7 @@ dependencies = [
     "langchain-community>=0.4.1",
     "langchain-core>=1.2.28",
     "langchain-google-genai>=4.2.1",
+    "langchain-groq>=1.1.2",
     "langchain-postgres>=0.0.17",
     "langgraph>=1.1.6",
     "langgraph-checkpoint-postgres>=3.0.5",
